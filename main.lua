@@ -1,5 +1,6 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -7,79 +8,105 @@ local CoreGui = game:GetService("CoreGui")
 local Camera = workspace.CurrentCamera
 local LP = Players.LocalPlayer
 
-local Chams_Enabled = true
-local NameTag_Enabled = false
-local TwoD_ESP_Enabled = false
-local Aimbot_Enabled = false
-local FOV_Enabled = false
+local Config = {
+    Aimbot_Enabled     = false,
+    Aimbot_TeamCheck   = false,  
+    FOV_Enabled        = false,
+    Aimbot_FOV         = 100,
+    Aimbot_Smooth      = 1,      
+    TargetPart         = "Head",
 
-local Chams_Color = Color3.fromRGB(255,0,0)
-local Box2D_Color = Color3.fromRGB(0,255,0)
+    Chams_Enabled      = false,
+    Chams_TeamCheck    = false, 
+    NameTag_Enabled    = false,
+    TwoD_ESP_Enabled   = false,
 
-local Aimbot_FOV = 100
-local Aimbot_Smooth = 0.2
-local TargetPart = "Head"
+    Chams_Color        = {R=0,G=255,B=0},
+    Box2D_Color        = {R=0,G=255,B=0}
+}
+
 local TargetParts = {"Head","Torso","HumanoidRootPart"}
 
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Color = Color3.fromRGB(255,255,255)
-FOVCircle.Thickness = 2
-FOVCircle.NumSides = 100
-FOVCircle.Radius = Aimbot_FOV
-FOVCircle.Filled = false
-FOVCircle.Visible = false
+FOVCircle.Color       = Color3.fromRGB(255,255,255)
+FOVCircle.Thickness   = 2
+FOVCircle.NumSides    = 100
+FOVCircle.Radius      = Config.Aimbot_FOV
+FOVCircle.Filled      = false
+FOVCircle.Visible     = false
 
-local Chams_Objects = {}
+local Chams_Objects   = {}
+
+
+local function c3(tbl)
+    return Color3.fromRGB(tbl.R,tbl.G,tbl.B)
+end
+local function c3ToTbl(c)
+    return {R=math.floor(c.R*255), G=math.floor(c.G*255), B=math.floor(c.B*255)}
+end
+
+local function IsTeammate(p)
+    return (p.Team == LP.Team)
+end
+
 
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "Universal Script"
+GUI.Name = "CyrusCheatUI"
 GUI.ResetOnSpawn = false
 GUI.Parent = CoreGui
 
 local Main = Instance.new("Frame")
 Main.Parent = GUI
-Main.Size = UDim2.new(0,600,0,450)
+Main.Size = UDim2.new(0,640,0,500)
 Main.Position = UDim2.new(0.25,0,0.25,0)
 Main.BackgroundColor3 = Color3.fromRGB(35,35,35)
 Main.BorderSizePixel = 0
 
-Main.Active = false
-Main.Draggable = false
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0,  Color3.fromRGB(30,30,30)),
+    ColorSequenceKeypoint.new(1,  Color3.fromRGB(45,45,45))
+}
+UIGradient.Rotation = 90
+UIGradient.Parent = Main
 
-local Corner = Instance.new("UICorner", Main)
-Corner.CornerRadius = UDim.new(0,8)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0,10)
+UICorner.Parent = Main
 
 local TopBar = Instance.new("Frame")
 TopBar.Parent = Main
-TopBar.Size = UDim2.new(1,0,0,30)
+TopBar.Size = UDim2.new(1,0,0,40)
 TopBar.BackgroundColor3 = Color3.fromRGB(25,25,25)
 TopBar.BorderSizePixel = 0
 TopBar.Active = true
-TopBar.Draggable = false  
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0,10)
+TopBarCorner.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
 Title.Parent = TopBar
 Title.Size = UDim2.new(0.3,0,1,0)
 Title.BackgroundTransparency = 1
-Title.Text = " Sleek Cheat Menu "
+Title.Text = "Cyrus - Premium Cheat"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
+Title.TextSize = 18
 Title.TextColor3 = Color3.new(1,1,1)
 
--- top bar dragging only!!!
 do
     local dragging = false
     local dragStart, startPos
-    TopBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    TopBar.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            dragStart = input.Position
+            dragStart = inp.Position
             startPos = Main.Position
         end
     end)
-    TopBar.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
+    TopBar.InputChanged:Connect(function(inp)
+        if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = inp.Position - dragStart
             Main.Position = UDim2.new(
                 startPos.X.Scale, 
                 startPos.X.Offset + delta.X,
@@ -88,8 +115,8 @@ do
             )
         end
     end)
-    TopBar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    TopBar.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
@@ -97,15 +124,15 @@ end
 
 local Tabs = Instance.new("Frame")
 Tabs.Parent = Main
-Tabs.Size = UDim2.new(1,0,0,420)
-Tabs.Position = UDim2.new(0,0,0,30)
+Tabs.Size = UDim2.new(1,0,0,460)
+Tabs.Position = UDim2.new(0,0,0,40)
 Tabs.BackgroundColor3 = Color3.fromRGB(40,40,40)
 Tabs.BorderSizePixel = 0
 
-local RageTab = Instance.new("Frame")
-local LegitTab = Instance.new("Frame")
+local RageTab    = Instance.new("Frame")
+local LegitTab   = Instance.new("Frame")
 local VisualsTab = Instance.new("Frame")
-local MiscTab = Instance.new("Frame")
+local MiscTab    = Instance.new("Frame")
 
 for _,tab in ipairs({RageTab,LegitTab,VisualsTab,MiscTab}) do
     tab.Parent = Tabs
@@ -115,77 +142,75 @@ for _,tab in ipairs({RageTab,LegitTab,VisualsTab,MiscTab}) do
 end
 LegitTab.Visible = true
 
-local function MakeTabButton(txt, pos, ref)
+local function MakeTabButton(txt, xPos, ref)
     local btn = Instance.new("TextButton")
     btn.Parent = TopBar
-    btn.Size = UDim2.new(0,80,1,0)
-    btn.Position = UDim2.new(0,80*pos,0,0)
+    btn.Size = UDim2.new(0,90,0,40)
+    btn.Position = UDim2.new(0,90*xPos,0,0)
     btn.Text = txt
-    btn.BackgroundColor3 = Color3.fromRGB(25,25,25)
+    btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
     btn.BorderSizePixel = 0
     btn.TextColor3 = Color3.fromRGB(255,255,255)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 14
     btn.MouseButton1Click:Connect(function()
-        RageTab.Visible = false
-        LegitTab.Visible = false
+        RageTab.Visible    = false
+        LegitTab.Visible   = false
         VisualsTab.Visible = false
-        MiscTab.Visible = false
-        ref.Visible = true
+        MiscTab.Visible    = false
+        ref.Visible        = true
     end)
+    return btn
 end
 
-MakeTabButton("RAGE",0,RageTab)
-MakeTabButton("LEGIT",1,LegitTab)
-MakeTabButton("VISUAL",2,VisualsTab)
-MakeTabButton("MISC",3,MiscTab)
+MakeTabButton("RAGE",   0, RageTab)
+MakeTabButton("LEGIT",  1, LegitTab)
+MakeTabButton("VISUAL", 2, VisualsTab)
+MakeTabButton("MISC",   3, MiscTab)
 
-local RageLabel = Instance.new("TextLabel", RageTab)
-RageLabel.Size = UDim2.new(1,0,1,0)
-RageLabel.BackgroundTransparency = 1
-RageLabel.Text = "SOON!"
-RageLabel.TextColor3 = Color3.new(1,1,1)
-RageLabel.Font = Enum.Font.GothamBold
-RageLabel.TextSize = 18
+local function NewLabel(parent, text)
+    local l = Instance.new("TextLabel")
+    l.Parent = parent
+    l.Size = UDim2.new(1,0,1,0)
+    l.BackgroundTransparency = 1
+    l.TextColor3 = Color3.new(1,1,1)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 18
+    l.Text = text
+    return l
+end
 
-local MiscLabel = Instance.new("TextLabel", MiscTab)
-MiscLabel.Size = UDim2.new(1,0,1,0)
-MiscLabel.BackgroundTransparency = 1
-MiscLabel.Text = "COMing soon"
-MiscLabel.TextColor3 = Color3.new(1,1,1)
-MiscLabel.Font = Enum.Font.GothamBold
-MiscLabel.TextSize = 18
+local RageLabel = NewLabel(RageTab,"[Cyrus] Rage Tab - Placeholder")
+local MiscLabel = NewLabel(MiscTab,"[Cyrus] Misc Tab - Placeholder")
 
-local AimbotToggle = Instance.new("TextButton")
-AimbotToggle.Parent = LegitTab
-AimbotToggle.Size = UDim2.new(0,120,0,30)
-AimbotToggle.Position = UDim2.new(0,20,0,20)
-AimbotToggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-AimbotToggle.TextColor3 = Color3.new(1,1,1)
-AimbotToggle.Font = Enum.Font.GothamBold
-AimbotToggle.TextSize = 14
-AimbotToggle.Text = "Aimbot: OFF"
-
-AimbotToggle.MouseButton1Click:Connect(function()
-    Aimbot_Enabled = not Aimbot_Enabled
-    AimbotToggle.Text = Aimbot_Enabled and "Aimbot: ON" or "Aimbot: OFF"
-    FOVCircle.Visible = (Aimbot_Enabled and FOV_Enabled)
-end)
+local function NewButton(parent, text, pos)
+    local b = Instance.new("TextButton")
+    b.Parent = parent
+    b.Size = UDim2.new(0,160,0,30)
+    b.Position = pos
+    b.BackgroundColor3 = Color3.fromRGB(55,55,55)
+    b.BorderSizePixel = 0
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.Text = text
+    return b
+end
 
 local function MakeSlider(parent, label, minVal, maxVal, defaultVal, pos, callback)
     local f = Instance.new("Frame")
     f.Parent = parent
     f.Position = pos
-    f.Size = UDim2.new(0,200,0,30)
+    f.Size = UDim2.new(0,220,0,40)
     f.BackgroundTransparency = 1
 
-    local l = Instance.new("TextLabel", f)
-    l.Size = UDim2.new(0.4,0,1,0)
-    l.BackgroundTransparency = 1
-    l.Text = label..": "..tostring(defaultVal)
-    l.Font = Enum.Font.Gotham
-    l.TextSize = 14
-    l.TextColor3 = Color3.new(1,1,1)
+    local lab = Instance.new("TextLabel", f)
+    lab.Size = UDim2.new(0.4,0,1,0)
+    lab.BackgroundTransparency = 1
+    lab.Text = label..": "..tostring(defaultVal)
+    lab.Font = Enum.Font.Gotham
+    lab.TextSize = 14
+    lab.TextColor3 = Color3.new(1,1,1)
 
     local bar = Instance.new("Frame", f)
     bar.Position = UDim2.new(0.45,0,0.3,0)
@@ -199,7 +224,7 @@ local function MakeSlider(parent, label, minVal, maxVal, defaultVal, pos, callba
     local function updateVal(val)
         local pct = (val - minVal)/(maxVal - minVal)
         knob.Position = UDim2.new(pct, -5, 0, 0)
-        l.Text = label..": "..tostring(val)
+        lab.Text = label..": "..tostring(val)
         callback(val)
     end
 
@@ -224,120 +249,93 @@ local function MakeSlider(parent, label, minVal, maxVal, defaultVal, pos, callba
     bar.InputChanged:Connect(function(i)
         if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
             local relPos = i.Position.X - bar.AbsolutePosition.X
-            local width = bar.AbsoluteSize.X
-            local pct = math.clamp(relPos/width, 0, 1)
+            local w = bar.AbsoluteSize.X
+            local pct = math.clamp(relPos/w, 0, 1)
             local newVal = math.floor(minVal + (maxVal - minVal)*pct)
             updateVal(newVal)
         end
     end)
 end
 
-MakeSlider(LegitTab,"FOV",50,300,Aimbot_FOV,UDim2.new(0,20,0,60),function(v)
-    Aimbot_FOV = v
-    FOVCircle.Radius = Aimbot_FOV
+local AimbotToggle = NewButton(LegitTab, "Aimbot: OFF", UDim2.new(0,20,0,20))
+AimbotToggle.MouseButton1Click:Connect(function()
+    Config.Aimbot_Enabled = not Config.Aimbot_Enabled
+    AimbotToggle.Text = Config.Aimbot_Enabled and "Aimbot: ON" or "Aimbot: OFF"
+    FOVCircle.Visible = (Config.Aimbot_Enabled and Config.FOV_Enabled)
 end)
 
-MakeSlider(LegitTab,"Smooth",1,100,math.floor(Aimbot_Smooth*100),UDim2.new(0,20,0,100),function(v)
-    Aimbot_Smooth = v/100
+local TeamCheckAim = NewButton(LegitTab,"TeamCheck: OFF",UDim2.new(0,240,0,20))
+TeamCheckAim.MouseButton1Click:Connect(function()
+    Config.Aimbot_TeamCheck = not Config.Aimbot_TeamCheck
+    TeamCheckAim.Text = Config.Aimbot_TeamCheck and "TeamCheck: ON" or "TeamCheck: OFF"
 end)
 
-local TargetBtn = Instance.new("TextButton")
-TargetBtn.Parent = LegitTab
-TargetBtn.Size = UDim2.new(0,120,0,30)
-TargetBtn.Position = UDim2.new(0,20,0,140)
-TargetBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-TargetBtn.TextColor3 = Color3.new(1,1,1)
-TargetBtn.Font = Enum.Font.GothamBold
-TargetBtn.TextSize = 14
-TargetBtn.Text = "Target: "..TargetPart
-
-TargetBtn.MouseButton1Click:Connect(function()
-    local idx = table.find(TargetParts,TargetPart) or 1
-    idx = (idx % #TargetParts) + 1
-    TargetPart = TargetParts[idx]
-    TargetBtn.Text = "Target: "..TargetPart
+MakeSlider(LegitTab,"FOV",50,300,Config.Aimbot_FOV,UDim2.new(0,20,0,70),function(v)
+    Config.Aimbot_FOV = v
+    FOVCircle.Radius = Config.Aimbot_FOV
 end)
 
-local ChamsToggle = Instance.new("TextButton")
-ChamsToggle.Parent = VisualsTab
-ChamsToggle.Size = UDim2.new(0,120,0,30)
-ChamsToggle.Position = UDim2.new(0,20,0,20)
-ChamsToggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-ChamsToggle.TextColor3 = Color3.new(1,1,1)
-ChamsToggle.Font = Enum.Font.GothamBold
-ChamsToggle.TextSize = 14
-ChamsToggle.Text = "Chams: ON"
+MakeSlider(LegitTab,"Smooth",1,100,math.floor(Config.Aimbot_Smooth*100),UDim2.new(0,20,0,120),function(v)
+    Config.Aimbot_Smooth = v/100
+end)
 
+local TBtn = NewButton(LegitTab,"Target: "..Config.TargetPart,UDim2.new(0,20,0,170))
+TBtn.MouseButton1Click:Connect(function()
+    local idx = table.find(TargetParts,Config.TargetPart) or 1
+    idx = (idx % #TargetParts)+1
+    Config.TargetPart = TargetParts[idx]
+    TBtn.Text = "Target: "..Config.TargetPart
+end)
+
+local ChamsToggle = NewButton(VisualsTab,"Chams: ON",UDim2.new(0,20,0,20))
 ChamsToggle.MouseButton1Click:Connect(function()
-    Chams_Enabled = not Chams_Enabled
-    ChamsToggle.Text = Chams_Enabled and "Chams: ON" or "Chams: OFF"
+    Config.Chams_Enabled = not Config.Chams_Enabled
+    ChamsToggle.Text = Config.Chams_Enabled and "Chams: ON" or "Chams: OFF"
 end)
 
-local FOVToggle = Instance.new("TextButton")
-FOVToggle.Parent = VisualsTab
-FOVToggle.Size = UDim2.new(0,140,0,30)
-FOVToggle.Position = UDim2.new(0,20,0,60)
-FOVToggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-FOVToggle.TextColor3 = Color3.new(1,1,1)
-FOVToggle.Font = Enum.Font.GothamBold
-FOVToggle.TextSize = 14
-FOVToggle.Text = "FOV Circle: OFF"
+local TeamCheckChams = NewButton(VisualsTab,"TeamCheck: OFF",UDim2.new(0,240,0,20))
+TeamCheckChams.MouseButton1Click:Connect(function()
+    Config.Chams_TeamCheck = not Config.Chams_TeamCheck
+    TeamCheckChams.Text = Config.Chams_TeamCheck and "TeamCheck: ON" or "TeamCheck: OFF"
+end)
 
+local FOVToggle = NewButton(VisualsTab,"FOV Circle: OFF",UDim2.new(0,20,0,70))
 FOVToggle.MouseButton1Click:Connect(function()
-    FOV_Enabled = not FOV_Enabled
-    FOVToggle.Text = FOV_Enabled and "FOV Circle: ON" or "FOV Circle: OFF"
-    FOVCircle.Visible = (Aimbot_Enabled and FOV_Enabled)
+    Config.FOV_Enabled = not Config.FOV_Enabled
+    FOVToggle.Text = Config.FOV_Enabled and "FOV Circle: ON" or "FOV Circle: OFF"
+    FOVCircle.Visible = (Config.Aimbot_Enabled and Config.FOV_Enabled)
 end)
 
-local NameTagToggle = Instance.new("TextButton")
-NameTagToggle.Parent = VisualsTab
-NameTagToggle.Size = UDim2.new(0,140,0,30)
-NameTagToggle.Position = UDim2.new(0,20,0,100)
-NameTagToggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-NameTagToggle.TextColor3 = Color3.new(1,1,1)
-NameTagToggle.Font = Enum.Font.GothamBold
-NameTagToggle.TextSize = 14
-NameTagToggle.Text = "NameTags: OFF"
-
+local NameTagToggle = NewButton(VisualsTab,"NameTags: OFF",UDim2.new(0,20,0,120))
 NameTagToggle.MouseButton1Click:Connect(function()
-    NameTag_Enabled = not NameTag_Enabled
-    NameTagToggle.Text = NameTag_Enabled and "NameTags: ON" or "NameTags: OFF"
+    Config.NameTag_Enabled = not Config.NameTag_Enabled
+    NameTagToggle.Text = Config.NameTag_Enabled and "NameTags: ON" or "NameTags: OFF"
 end)
 
-local TwoDToggle = Instance.new("TextButton")
-TwoDToggle.Parent = VisualsTab
-TwoDToggle.Size = UDim2.new(0,140,0,30)
-TwoDToggle.Position = UDim2.new(0,20,0,140)
-TwoDToggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-TwoDToggle.TextColor3 = Color3.new(1,1,1)
-TwoDToggle.Font = Enum.Font.GothamBold
-TwoDToggle.TextSize = 14
-TwoDToggle.Text = "2D ESP: OFF"
-
+local TwoDToggle = NewButton(VisualsTab,"2D ESP: OFF",UDim2.new(0,20,0,170))
 TwoDToggle.MouseButton1Click:Connect(function()
-    TwoD_ESP_Enabled = not TwoD_ESP_Enabled
-    TwoDToggle.Text = TwoD_ESP_Enabled and "2D ESP: ON" or "2D ESP: OFF"
+    Config.TwoD_ESP_Enabled = not Config.TwoD_ESP_Enabled
+    TwoDToggle.Text = Config.TwoD_ESP_Enabled and "2D ESP: ON" or "2D ESP: OFF"
 end)
--- api
-local function MakeColorPicker(parent, label, defaultColor, pos, callback)
+
+local function MakeColorPicker(parent, label, colorRef, pos)
     local cframe = Instance.new("Frame")
     cframe.Parent = parent
     cframe.Position = pos
     cframe.Size = UDim2.new(0,180,0,90)
     cframe.BackgroundTransparency = 1
 
-    local lbl = Instance.new("TextLabel", cframe)
-    lbl.Size = UDim2.new(1,0,0,20)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = label
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 14
-    lbl.TextColor3 = Color3.new(1,1,1)
+    local lab = Instance.new("TextLabel", cframe)
+    lab.Size = UDim2.new(1,0,0,20)
+    lab.BackgroundTransparency = 1
+    lab.Text = label
+    lab.Font = Enum.Font.GothamBold
+    lab.TextSize = 14
+    lab.TextColor3 = Color3.new(1,1,1)
 
-    local defaultR = math.floor(defaultColor.R * 255)
-    local defaultG = math.floor(defaultColor.G * 255)
-    local defaultB = math.floor(defaultColor.B * 255)
-    local r, g, b = defaultR, defaultG, defaultB
+    local r = colorRef.R
+    local g = colorRef.G
+    local b = colorRef.B
 
     local function makeRGBSlider(nametxt, startVal, yPos, setfunc)
         local f = Instance.new("Frame", cframe)
@@ -398,36 +396,69 @@ local function MakeColorPicker(parent, label, defaultColor, pos, callback)
         end)
     end
 
-    makeRGBSlider("R", defaultR, 20, function(val)
+    makeRGBSlider("R", r, 20, function(val)
         r = val
-        callback(Color3.fromRGB(r,g,b))
+        colorRef.R = val
     end)
-    makeRGBSlider("G", defaultG, 40, function(val)
+    makeRGBSlider("G", g, 40, function(val)
         g = val
-        callback(Color3.fromRGB(r,g,b))
+        colorRef.G = val
     end)
-    makeRGBSlider("B", defaultB, 60, function(val)
+    makeRGBSlider("B", b, 60, function(val)
         b = val
-        callback(Color3.fromRGB(r,g,b))
+        colorRef.B = val
     end)
 end
 
-MakeColorPicker(VisualsTab,"Chams Color",Chams_Color,UDim2.new(0,200,0,20),function(c)
-    Chams_Color = c
+MakeColorPicker(VisualsTab,"Chams Color",Config.Chams_Color,UDim2.new(0,420,0,20))
+MakeColorPicker(VisualsTab,"2D Box Color",Config.Box2D_Color,UDim2.new(0,420,0,140))
+
+
+local function SaveConfig()
+    local data = HttpService:JSONEncode(Config)
+    writefile("CyrusConfig.json", data)
+end
+
+local function LoadConfig()
+    local ok,err = pcall(function()
+        local data = readfile("CyrusConfig.json")
+        local dec = HttpService:JSONDecode(data)
+        for k,v in pairs(dec) do
+            Config[k] = v
+        end
+    end)
+    if not ok then
+        warn("[Cyrus] Load config failed:", err)
+    end
+end
+
+local SaveBtn = NewButton(MiscTab,"Save Config", UDim2.new(0,20,0,20))
+SaveBtn.MouseButton1Click:Connect(SaveConfig)
+
+local LoadBtn = NewButton(MiscTab,"Load Config", UDim2.new(0,20,0,70))
+LoadBtn.MouseButton1Click:Connect(function()
+    LoadConfig()
+    AimbotToggle.Text   = Config.Aimbot_Enabled and "Aimbot: ON" or "Aimbot: OFF"
+    TeamCheckAim.Text   = Config.Aimbot_TeamCheck and "TeamCheck: ON" or "TeamCheck: OFF"
+    FOVBtn.Text         = Config.FOV_Enabled and "FOV Circle: ON" or "FOV Circle: OFF"
+    ChamsToggle.Text    = Config.Chams_Enabled and "Chams: ON" or "Chams: OFF"
+    TeamCheckChams.Text = Config.Chams_TeamCheck and "TeamCheck: ON" or "TeamCheck: OFF"
+    NameTagBtn.Text     = Config.NameTag_Enabled and "NameTags: ON" or "NameTags: OFF"
+    TwoDToggle.Text     = Config.TwoD_ESP_Enabled and "2D ESP: ON" or "2D ESP: OFF"
+    TBtn.Text           = "Target: "..Config.TargetPart
+    FOVCircle.Radius    = Config.Aimbot_FOV
+    FOVCircle.Visible   = (Config.Aimbot_Enabled and Config.FOV_Enabled)
 end)
 
-MakeColorPicker(VisualsTab,"2D Box Color",Box2D_Color,UDim2.new(0,200,0,120),function(c)
-    Box2D_Color = c
-end)
 
 local function SetupChams(p)
-    if p == LP then return end
+    if p==LP then return end
     if Chams_Objects[p] then return end
 
     local highlight = Instance.new("Highlight")
-    highlight.FillColor = Chams_Color
+    highlight.FillColor        = c3(Config.Chams_Color)
     highlight.FillTransparency = 0.7
-    highlight.OutlineColor = Color3.fromRGB(255,255,255)
+    highlight.OutlineColor     = Color3.fromRGB(255,255,255)
     highlight.OutlineTransparency = 0
     highlight.Enabled = false
     highlight.Parent = CoreGui
@@ -446,45 +477,49 @@ local function SetupChams(p)
     nameLbl.TextSize = 14
     nameLbl.Text = p.Name
     nameLbl.Parent = billboard
-
     billboard.Parent = CoreGui
 
     local box2D = Drawing.new("Square")
-    box2D.Color = Box2D_Color
+    box2D.Color     = c3(Config.Box2D_Color)
     box2D.Thickness = 2
-    box2D.Filled = false
-    box2D.Visible = false
+    box2D.Filled    = false
+    box2D.Visible   = false
 
     Chams_Objects[p] = {
         Highlight = highlight,
         Billboard = billboard,
-        Box2D = box2D
+        Box2D     = box2D
     }
 
     RunService.RenderStepped:Connect(function()
         if not Chams_Objects[p] then return end
         local data = Chams_Objects[p]
-        local h = data.Highlight
-        local b = data.Billboard
-        local box = data.Box2D
+        local h    = data.Highlight
+        local b    = data.Billboard
+        local box  = data.Box2D
 
-        -- updating colors?
-        h.FillColor = Chams_Color
-        box.Color = Box2D_Color
+        h.FillColor = c3(Config.Chams_Color)
+        box.Color   = c3(Config.Box2D_Color)
 
         if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
+            if Config.Chams_TeamCheck and (p.Team==LP.Team) then
+                h.Enabled  = false
+                b.Enabled  = false
+                box.Visible= false
+                return
+            end
             h.Adornee = p.Character
-            h.Enabled = Chams_Enabled
+            h.Enabled = Config.Chams_Enabled
 
             local head = p.Character.Head
             b.Adornee = head
-            b.Enabled = NameTag_Enabled
+            b.Enabled = Config.NameTag_Enabled
 
             local hrp = p.Character.HumanoidRootPart
             local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
             local footPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
 
-            if TwoD_ESP_Enabled then
+            if Config.TwoD_ESP_Enabled then
                 local height = footPos.Y - headPos.Y
                 if height < 0 then
                     local tmp = headPos
@@ -493,50 +528,56 @@ local function SetupChams(p)
                     height = footPos.Y - headPos.Y
                 end
                 local width = height / 2
-                local x = headPos.X - width / 2
+                local x = headPos.X - width/2
                 local y = headPos.Y
-
-                if width > 0 and height > 0 then
-                    box.Size = Vector2.new(width, height)
+                if width>0 and height>0 and headPos.Z>0 and footPos.Z>0 then
+                    box.Size     = Vector2.new(width, height)
                     box.Position = Vector2.new(x, y)
-                    box.Visible = true
+                    box.Visible  = true
                 else
-                    box.Visible = false
+                    box.Visible  = false
                 end
             else
                 box.Visible = false
             end
         else
-            h.Enabled = false
-            b.Enabled = false
-            box.Visible = false
+            h.Enabled  = false
+            b.Enabled  = false
+            box.Visible= false
         end
     end)
 end
 
 for _,pl in ipairs(Players:GetPlayers()) do
-    pl.CharacterAdded:Connect(function()
+    if pl~=LP then
+        pl.CharacterAdded:Connect(function() SetupChams(pl) end)
         SetupChams(pl)
-    end)
-    SetupChams(pl)
+    end
 end
 
 Players.PlayerAdded:Connect(function(newP)
-    newP.CharacterAdded:Connect(function()
+    if newP~=LP then
+        newP.CharacterAdded:Connect(function() SetupChams(newP) end)
         SetupChams(newP)
-    end)
+    end
 end)
 
+
+local function IsTeammateCheck(p)
+    return Config.Aimbot_TeamCheck and (p.Team==LP.Team)
+end
+
 local function GetClosest()
-    local chosen, dist = nil, Aimbot_FOV
+    local chosen, dist = nil, Config.Aimbot_FOV
     for _,pp in ipairs(Players:GetPlayers()) do
-        if pp~=LP and pp.Character and pp.Character:FindFirstChild(TargetPart) then
-            local part = pp.Character[TargetPart]
-            local pos,onScreen = Camera:WorldToViewportPoint(part.Position)
-            if onScreen then
+        if pp~=LP and pp.Character and pp.Character:FindFirstChild(Config.TargetPart) then
+            if IsTeammateCheck(pp) then continue end
+            local part = pp.Character[Config.TargetPart]
+            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen and pos.Z>0 then
                 local mpos = UserInputService:GetMouseLocation()
                 local diff = (Vector2.new(pos.X,pos.Y)-mpos).magnitude
-                if diff < dist then
+                if diff<dist then
                     dist = diff
                     chosen = pp
                 end
@@ -548,21 +589,25 @@ end
 
 RunService.RenderStepped:Connect(function(dt)
     FOVCircle.Position = UserInputService:GetMouseLocation()
-    if Aimbot_Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+    if Config.Aimbot_Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         local tgt = GetClosest()
-        if tgt and tgt.Character and tgt.Character:FindFirstChild(TargetPart) then
-            local part = tgt.Character[TargetPart]
-            local desiredCF = CFrame.new(Camera.CFrame.Position, part.Position)
-            local step = math.clamp(Aimbot_Smooth * dt * 4, 0, 1)
-            Camera.CFrame = Camera.CFrame:Lerp(desiredCF, step)
+        if tgt and tgt.Character and tgt.Character:FindFirstChild(Config.TargetPart) then
+            local part = tgt.Character[Config.TargetPart]
+            local goalCF = CFrame.new(Camera.CFrame.Position, part.Position)
+
+-- fixed aimbto!!!
+            local linearFactor = (101 - math.floor(Config.Aimbot_Smooth*100)) / 100
+            local step = math.clamp(linearFactor * dt * 10, 0,1)
+            Camera.CFrame = Camera.CFrame:Lerp(goalCF, step)
         end
     end
 end)
 
-UserInputService.InputBegan:Connect(function(i,g)
-    if i.KeyCode == Enum.KeyCode.Insert and not g then
+UserInputService.InputBegan:Connect(function(inp, gp)
+    if gp then return end
+    if inp.KeyCode == Enum.KeyCode.Insert then
         Main.Visible = not Main.Visible
-    elseif i.KeyCode == Enum.KeyCode.Delete and not g then
+    elseif inp.KeyCode == Enum.KeyCode.Delete then
         GUI:Destroy()
         FOVCircle:Remove()
         for ply,data in pairs(Chams_Objects) do
